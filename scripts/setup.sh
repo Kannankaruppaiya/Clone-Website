@@ -12,8 +12,11 @@ fi
 
 python3 -m pip install --quiet "git+https://github.com/ericshang98/Perfect-Web-Clone.git@${PWC_COMMIT}"
 
-# Claude Code cloud containers ship Chromium at $PLAYWRIGHT_BROWSERS_PATH; elsewhere, fetch it.
-if [ -z "${PLAYWRIGHT_BROWSERS_PATH:-}" ]; then
+# Claude Code cloud containers ship Chromium 1194 at $PLAYWRIGHT_BROWSERS_PATH and must not
+# download browsers, so pin the Playwright release built for that revision. Elsewhere, fetch it.
+if [ -d "${PLAYWRIGHT_BROWSERS_PATH:-/nonexistent}/chromium_headless_shell-1194" ]; then
+  python3 -m pip install --quiet "playwright==1.56.0"
+else
   python3 -m playwright install chromium
 fi
 

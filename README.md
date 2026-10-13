@@ -30,10 +30,15 @@ Open this repo in Claude Code (or copy `.claude/skills/*` into another project's
   ```
 
   In Claude Code cloud sessions a `SessionStart` hook (`.claude/settings.json`) runs this automatically.
+  There it pins Playwright 1.56.0 to match the preinstalled Chromium; the environment's network policy
+  must also allow the site you clone (a denied host fails with `ERR_TUNNEL_CONNECTION_FAILED`).
 
 ## Known limits (from reviewing the code)
 
 - `pwc score` compares pages on a 256×256 grayscale canvas, so it checks layout, not exact colours or small text.
+  In a local test a recoloured header with the same layout scored 0.977 (pass) and a broken card row 0.961
+  (fail, threshold 0.97): it catches layout breaks, but the margin is thin.
+- `pwc assemble` reports `ok: false` until the agent has written every planned section file; that is expected.
 - replica's `features.csv` parity score is filled in by the agent itself; treat it as self-reported. `imgdiff.py` is independent and takes ~13 s per retina screenshot pair.
 
 ## Tests
