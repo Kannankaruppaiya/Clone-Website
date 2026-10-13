@@ -39,7 +39,7 @@ Found while cloning a real site end to end. Use these in place of the steps the 
 
 | Skill step | Problem | Use instead |
 | --- | --- | --- |
-| after `pwc extract <url>` | Assets and stylesheets are fetched with Playwright's request API, which ignores `HTTPS_PROXY`. Behind a proxy every download fails silently, yet capture integrity still reports `passed`; `pwc section` then returns empty `css_rules`. Check `downloaded_counts` in the extract output. | `python3 scripts/pwc-backfill-assets.py <source_id>`, then run `pwc plan <source_id>` (again) so sections pick up the CSS. |
+| after `pwc extract <url>` | Assets and stylesheets are fetched with Playwright's request API, which ignores `HTTPS_PROXY`. Behind a proxy every download fails silently, yet capture integrity still reports `passed`; `pwc section` then returns empty `css_rules`. Check `downloaded_counts` in the extract output. | `python3 scripts/pwc-backfill-assets.py <source_id>` for images and fonts. Add `--with-css` (then rerun `pwc plan`) for `css_rules` too, but see the `theme.css` note below. |
 | `pwc assemble` → `pwc build` | The sandbox lives in an in-process singleton, so every `pwc` CLI call starts a fresh one: a second `pwc assemble` never sees your section files and `pwc build` fails with "No sandbox exists". | Run `pwc assemble <source_id>` once to create the shell, write the sections, then `python3 scripts/pwc-assemble-build.py <source_id>` for every rebuild. |
 
 Both scripts call pwc's own library functions; they need the `pwc` package installed and the same
@@ -54,6 +54,10 @@ Both scripts call pwc's own library functions; they need the `pwc` package insta
 - In a signal.org test `pwc plan` gave two sections the bounds of an earlier one, and `styles` stayed empty even
   with `css_rules` restored. Measure geometry and computed styles from the live page, and score with your own
   `--sections` bounds.
+- Whenever a capture has stylesheets, `pwc assemble` writes the source's **entire** CSS (695 KB for signal.org,
+  framework included) to `public/theme.css` and links it from `index.html`, so the clone ships the original
+  stylesheet. Behind a proxy this only happens with `pwc-backfill-assets.py --with-css`. To build without it,
+  remove the stylesheets from `css.json`, delete `public/theme.css` and its `<link>` in `index.html`.
 - `pwc fingerprints` only matches Shopify patterns, so it passes trivially for any other platform.
 - The default `pwc weight` budget (120 KB gzipped code) is exceeded by React plus any animation runtime such as Lottie.
 - replica's `features.csv` parity score is filled in by the agent itself; treat it as self-reported. `imgdiff.py` is independent and takes ~13 s per retina screenshot pair.
