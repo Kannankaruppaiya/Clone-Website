@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Download a pwc capture's images and fonts and record them in its manifest.
+"""Download a pwc capture's images, fonts and stylesheets and record them.
 
 pwc's extractor fetches assets with Playwright's APIRequestContext, which does
 not use HTTPS_PROXY. Behind a proxy (e.g. Claude Code cloud sessions) every
 download fails silently and the clone ships with hotlinked or missing assets.
 This re-downloads them with httpx (a pwc dependency, which honours the proxy)
-and writes `downloaded_resources` in the same shape pwc's own downloader uses,
-so `pwc assemble` copies and localizes them as usual.
+and writes `downloaded_resources` (images, fonts) and the external stylesheets in
+`css.json` in the shapes pwc's own extractor uses, so `pwc section` returns the
+real `css_rules` and `pwc assemble` copies and localizes the assets as usual.
 
 Usage: pwc-backfill-assets.py <source_id>    (run after `pwc extract`)
 """
@@ -57,9 +58,30 @@ def main(source_id: str) -> int:
                     "mime_type": resp.headers.get("content-type", ""), "filename": name, "saved_path": rel,
                 })
 
+        # External stylesheets go to css.json, where `pwc section` derives css_rules.
+        css_path = src / "css.json"
+        css = json.loads(css_path.read_text(encoding="utf-8")) if css_path.is_file() else {}
+        sheets = css.get("stylesheets") or []
+        have = {s.get("url") for s in sheets}
+        added_css = 0
+        for asset in assets.get("stylesheets") or []:
+            url = asset.get("url", "")
+            if not url.startswith(("http://", "https://")) or url in have:
+                continue
+            try:
+                resp = client.get(url)
+                resp.raise_for_status()
+            except httpx.HTTPError as exc:
+                failed.append((url, str(exc)))
+                continue
+            sheets.append({"url": url, "content": resp.text, "is_inline": False})
+            added_css += 1
+        css["stylesheets"] = sheets
+        css_path.write_text(json.dumps(css, ensure_ascii=False, indent=2), encoding="utf-8")
+
     manifest["downloaded_resources"] = out
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"ok": not failed, "downloaded": {k: len(v) for k, v in out.items() if v},
+    print(json.dumps({"ok": not failed, "downloaded": {**{k: len(v) for k, v in out.items() if v}, "stylesheets": added_css},
                       "failed": failed}, indent=2))
     return 0 if not failed else 1
 
